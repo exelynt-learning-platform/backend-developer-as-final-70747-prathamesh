@@ -3,7 +3,6 @@ package com.task.controller;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.task.dto.LoginRequest;
 import com.task.dto.RegisterRequest;
-import com.task.enums.Role;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMockMvc;
@@ -64,7 +63,7 @@ public class AuthControllerTest {
 
     @Test
     public void testRegisterNewUserSuccess() throws Exception {
-        RegisterRequest registerRequest = new RegisterRequest("newuser", "password123", "newuser@test.com", Role.ROLE_USER);
+        RegisterRequest registerRequest = new RegisterRequest("newuser", "password123", "newuser@test.com");
 
         mockMvc.perform(post("/auth/register")
                         .contentType(MediaType.APPLICATION_JSON)
@@ -74,7 +73,7 @@ public class AuthControllerTest {
 
     @Test
     public void testRegisterDuplicateUsername() throws Exception {
-        RegisterRequest registerRequest = new RegisterRequest("admin", "password123", "anotheradmin@test.com", Role.ROLE_ADMIN);
+        RegisterRequest registerRequest = new RegisterRequest("admin", "password123", "anotheradmin@test.com");
 
         mockMvc.perform(post("/auth/register")
                         .contentType(MediaType.APPLICATION_JSON)

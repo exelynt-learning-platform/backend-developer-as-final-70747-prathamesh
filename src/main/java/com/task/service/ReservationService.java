@@ -15,6 +15,7 @@ import com.task.exception.UnauthorizedException;
 import com.task.repository.ReservationRepository;
 import com.task.repository.ResourceRepository;
 import com.task.repository.UserRepository;
+import jakarta.persistence.criteria.JoinType;
 import jakarta.persistence.criteria.Predicate;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
@@ -32,9 +33,12 @@ import java.time.Duration;
 import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Set;
 
 @Service
 public class ReservationService {
+
+    private static final Set<String> ALLOWED_SORT_FIELDS = Set.of("id", "startTime", "endTime", "totalPrice", "status", "createdAt");
 
     private final ReservationRepository reservationRepository;
     private final ResourceRepository resourceRepository;
@@ -88,13 +92,14 @@ public class ReservationService {
         booking.setTotalPrice(cost);
         booking.setStatus(ReservationStatus.PENDING);
 
-        return toDto(reservationRepository.save(booking));
+        Reservation saved = reservationRepository.save(booking);
+        return toDto(saved);
     }
 
     @Transactional(readOnly = true)
     public ReservationResponse getReservationById(Long id) {
         User currentUser = fetchCurrentUser();
-        Reservation reservation = reservationRepository.findById(id)
+        Reservation reservation = reservationRepository.findByIdWithDetails(id)
                 .orElseThrow(() -> new ResourceNotFoundException("Reservation not found with id: " + id));
 
         verifyOwnershipOrAdmin(currentUser, reservation, "view");
@@ -110,10 +115,19 @@ public class ReservationService {
                                                                String sortBy,
                                                                String sortDir) {
         User currentUser = fetchCurrentUser();
+
+        validatePaginationAndSorting(page, size, sortBy, sortDir);
+
         Sort sort = sortDir.equalsIgnoreCase("asc") ? Sort.by(sortBy).ascending() : Sort.by(sortBy).descending();
         Pageable pageable = PageRequest.of(page, size, sort);
 
         Specification<Reservation> spec = (root, query, cb) -> {
+            // Eagerly fetch user and resource associations to prevent LazyInitializationException
+            if (!Long.class.equals(query.getResultType()) && !long.class.equals(query.getResultType())) {
+                root.fetch("user", JoinType.LEFT);
+                root.fetch("resource", JoinType.LEFT);
+            }
+
             List<Predicate> predicates = new ArrayList<>();
 
             if (!currentUser.getRole().equals(Role.ROLE_ADMIN)) {
@@ -150,7 +164,7 @@ public class ReservationService {
     @Transactional
     public ReservationResponse updateReservation(Long id, ReservationUpdateRequest request) {
         User currentUser = fetchCurrentUser();
-        Reservation reservation = reservationRepository.findById(id)
+        Reservation reservation = reservationRepository.findByIdWithDetails(id)
                 .orElseThrow(() -> new ResourceNotFoundException("Reservation not found with id: " + id));
 
         verifyOwnershipOrAdmin(currentUser, reservation, "update");
@@ -168,13 +182,14 @@ public class ReservationService {
             reservation.setStatus(request.getStatus());
         }
 
-        return toDto(reservationRepository.save(reservation));
+        Reservation updated = reservationRepository.save(reservation);
+        return toDto(updated);
     }
 
     @Transactional
     public void deleteReservation(Long id) {
         User currentUser = fetchCurrentUser();
-        Reservation reservation = reservationRepository.findById(id)
+        Reservation reservation = reservationRepository.findByIdWithDetails(id)
                 .orElseThrow(() -> new ResourceNotFoundException("Reservation not found with id: " + id));
 
         verifyOwnershipOrAdmin(currentUser, reservation, "delete");
@@ -187,6 +202,21 @@ public class ReservationService {
         }
         if (!end.isAfter(start)) {
             throw new BadRequestException("End time must be strictly after start time.");
+        }
+    }
+
+    private void validatePaginationAndSorting(int page, int size, String sortBy, String sortDir) {
+        if (page < 0) {
+            throw new BadRequestException("Page index cannot be negative.");
+        }
+        if (size < 1 || size > 100) {
+            throw new BadRequestException("Page size must be between 1 and 100.");
+        }
+        if (!ALLOWED_SORT_FIELDS.contains(sortBy)) {
+            throw new BadRequestException("Invalid sortBy field: " + sortBy + ". Allowed fields: " + ALLOWED_SORT_FIELDS);
+        }
+        if (!sortDir.equalsIgnoreCase("asc") && !sortDir.equalsIgnoreCase("desc")) {
+            throw new BadRequestException("Invalid sort direction: " + sortDir + ". Must be 'asc' or 'desc'.");
         }
     }
 

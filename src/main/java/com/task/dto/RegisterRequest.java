@@ -1,6 +1,5 @@
 package com.task.dto;
 
-import com.task.enums.Role;
 import jakarta.validation.constraints.Email;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.Size;
@@ -19,16 +18,13 @@ public class RegisterRequest {
     @Email(message = "Invalid email format")
     private String email;
 
-    private Role role;
-
     public RegisterRequest() {
     }
 
-    public RegisterRequest(String username, String password, String email, Role role) {
+    public RegisterRequest(String username, String password, String email) {
         this.username = username;
         this.password = password;
         this.email = email;
-        this.role = role;
     }
 
     public String getUsername() {
@@ -53,13 +49,5 @@ public class RegisterRequest {
 
     public void setEmail(String email) {
         this.email = email;
-    }
-
-    public Role getRole() {
-        return role;
-    }
-
-    public void setRole(Role role) {
-        this.role = role;
     }
 }

@@ -4,6 +4,7 @@ import com.task.dto.PagedResponse;
 import com.task.dto.ResourceRequest;
 import com.task.dto.ResourceResponse;
 import com.task.entity.Resource;
+import com.task.exception.BadRequestException;
 import com.task.exception.ResourceNotFoundException;
 import com.task.repository.ResourceRepository;
 import org.springframework.data.domain.Page;
@@ -14,9 +15,12 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.util.List;
+import java.util.Set;
 
 @Service
 public class ResourceService {
+
+    private static final Set<String> ALLOWED_SORT_FIELDS = Set.of("id", "name", "pricePerHour", "available", "createdAt");
 
     private final ResourceRepository resourceRepository;
 
@@ -44,6 +48,8 @@ public class ResourceService {
 
     @Transactional(readOnly = true)
     public PagedResponse<ResourceResponse> getAllResources(int page, int size, String sortBy, String sortDir) {
+        validatePaginationAndSorting(page, size, sortBy, sortDir);
+
         Sort sort = sortDir.equalsIgnoreCase("asc") ? Sort.by(sortBy).ascending() : Sort.by(sortBy).descending();
         Pageable pageable = PageRequest.of(page, size, sort);
         Page<Resource> pageResult = resourceRepository.findAll(pageable);
@@ -82,6 +88,21 @@ public class ResourceService {
         Resource entity = resourceRepository.findById(id)
                 .orElseThrow(() -> new ResourceNotFoundException("Resource not found with id: " + id));
         resourceRepository.delete(entity);
+    }
+
+    private void validatePaginationAndSorting(int page, int size, String sortBy, String sortDir) {
+        if (page < 0) {
+            throw new BadRequestException("Page index cannot be negative.");
+        }
+        if (size < 1 || size > 100) {
+            throw new BadRequestException("Page size must be between 1 and 100.");
+        }
+        if (!ALLOWED_SORT_FIELDS.contains(sortBy)) {
+            throw new BadRequestException("Invalid sortBy field: " + sortBy + ". Allowed fields: " + ALLOWED_SORT_FIELDS);
+        }
+        if (!sortDir.equalsIgnoreCase("asc") && !sortDir.equalsIgnoreCase("desc")) {
+            throw new BadRequestException("Invalid sort direction: " + sortDir + ". Must be 'asc' or 'desc'.");
+        }
     }
 
     public ResourceResponse toDto(Resource r) {

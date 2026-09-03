@@ -69,4 +69,16 @@ public class ReservationControllerTest {
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.content").isArray());
     }
+
+    @Test
+    @WithMockUser(username = "user", roles = {"USER"})
+    public void testInvalidPaginationAndSortingParameters() throws Exception {
+        mockMvc.perform(get("/reservations")
+                        .param("page", "-1"))
+                .andExpect(status().isBadRequest());
+
+        mockMvc.perform(get("/reservations")
+                        .param("sortBy", "invalidColumn"))
+                .andExpect(status().isBadRequest());
+    }
 }

@@ -61,7 +61,8 @@ public class AuthService {
         account.setUsername(request.getUsername());
         account.setPassword(encoder.encode(request.getPassword()));
         account.setEmail(request.getEmail());
-        account.setRole(request.getRole() != null ? request.getRole() : Role.ROLE_USER);
+        // Public registration strictly assigns ROLE_USER to prevent privilege escalation
+        account.setRole(Role.ROLE_USER);
 
         userRepository.save(account);
         return "User account created successfully.";
